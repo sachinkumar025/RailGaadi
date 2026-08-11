@@ -53,13 +53,14 @@ export async function GET(
       timestamp: new Date().toISOString(),
     });
   } catch (err: any) {
+    const isUnconfigured = err.message?.includes('RAILRADAR_NOT_CONFIGURED');
     return NextResponse.json<ApiResponse<never>>(
       {
         success: false,
-        error: err.message || 'Failed to fetch live journey',
+        error: isUnconfigured ? 'RAILRADAR_NOT_CONFIGURED' : (err.message || 'Failed to fetch live journey'),
         timestamp: new Date().toISOString(),
       },
-      { status: 500 }
+      { status: isUnconfigured ? 503 : 500 }
     );
   }
 }

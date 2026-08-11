@@ -39,9 +39,14 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (err: any) {
+    const isUnconfigured = err.message?.includes('OPENWEATHER_NOT_CONFIGURED');
     return NextResponse.json<ApiResponse<never>>(
-      { success: false, error: err.message || 'Weather request failed', timestamp: new Date().toISOString() },
-      { status: 500 }
+      {
+        success: false,
+        error: isUnconfigured ? 'OPENWEATHER_NOT_CONFIGURED' : (err.message || 'Weather request failed'),
+        timestamp: new Date().toISOString(),
+      },
+      { status: isUnconfigured ? 503 : 500 }
     );
   }
 }

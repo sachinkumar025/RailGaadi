@@ -96,6 +96,7 @@ export default function TrainJourneyPage({ params }: { params: { id: string } })
 
   if (isError || !journey) {
     const errMsg = (error as Error)?.message || '';
+    const isUnconfigured = errMsg.includes('RAILRADAR_NOT_CONFIGURED');
     const isQuotaError = errMsg.includes('QUOTA_EXCEEDED') || errMsg.includes('TOO_MANY_REQUESTS') || errMsg.includes('Daily quota');
     const is404 = errMsg.includes('404') || errMsg.includes('not found');
 
@@ -108,7 +109,23 @@ export default function TrainJourneyPage({ params }: { params: { id: string } })
           <ArrowLeft className="h-4 w-4" /> Back to Search
         </Link>
 
-        {isQuotaError ? (
+        {isUnconfigured ? (
+          <div className="glass-panel rounded-3xl p-8 text-center space-y-4 border border-amber-500/30">
+            <div className="text-4xl">🔑</div>
+            <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">RailRadar API Key Required</h2>
+            <p className="text-sm text-slate-500 dark:text-slate-400 max-w-md mx-auto">
+              Real-time train tracking requires a valid <strong>RAILRADAR_API_KEY</strong>. Please add <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-xs font-mono">RAILRADAR_API_KEY</code> to your <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-xs font-mono">.env.local</code> file.
+            </p>
+            <div className="flex justify-center">
+              <Link
+                href="/"
+                className="inline-flex items-center gap-2 rounded-xl bg-rail-blue px-4 py-2 text-xs font-semibold text-white shadow-glow hover:bg-sky-600 transition-colors"
+              >
+                Back to Search
+              </Link>
+            </div>
+          </div>
+        ) : isQuotaError ? (
           <div className="glass-panel rounded-3xl p-8 text-center space-y-4 border border-amber-500/20">
             <div className="text-4xl">⏳</div>
             <h2 className="text-xl font-extrabold text-slate-900 dark:text-white">API Quota Reached</h2>

@@ -1,6 +1,7 @@
 import { SearchResult, LiveJourney, Station } from '@/types/train';
-import { env } from '@/config/env';
+import { env, isRailRadarConfigured } from '@/config/env';
 import { searchLocalTrains, TRAINS_DB, TrainEntry } from '@/lib/trains-db';
+
 
 const RR_BASE = 'https://api.railradar.in/v1';
 
@@ -291,189 +292,66 @@ async function fetchRouteGeometry(trainNumber: string): Promise<[number, number]
   }
 }
 
-// ─── Fallback Journey Generator ──────────────────────────────────────────
-
-function generateFallbackJourney(trainNumber: string): LiveJourney | null {
-  const train = TRAINS_DB.find((t) => t.number === trainNumber) || {
-    number: trainNumber,
-    name: `Express Train #${trainNumber}`,
-    from: 'Mumbai Central',
-    fromCode: 'MMCT',
-    to: 'New Delhi',
-    toCode: 'NDLS',
-  };
-
-  const stations: Station[] = [
-    {
-      code: train.fromCode,
-      name: train.from,
-      lat: 18.9696,
-      lng: 72.8193,
-      scheduledArrival: '17:00',
-      scheduledDeparture: '17:00',
-      actualArrival: '17:00',
-      actualDeparture: '17:00',
-      delayMinutes: 0,
-      distanceKm: 0,
-      status: 'passed',
-      platform: '1',
-    },
-    {
-      code: 'ST',
-      name: 'Surat',
-      lat: 21.2049,
-      lng: 72.8406,
-      scheduledArrival: '20:10',
-      scheduledDeparture: '20:15',
-      actualArrival: '20:14',
-      actualDeparture: '20:19',
-      delayMinutes: 4,
-      distanceKm: 263,
-      status: 'passed',
-      platform: '1',
-    },
-    {
-      code: 'KOTA',
-      name: 'Kota Junction',
-      lat: 25.2138,
-      lng: 75.8648,
-      scheduledArrival: '03:15',
-      scheduledDeparture: '03:25',
-      actualArrival: '03:23',
-      actualDeparture: '03:33',
-      delayMinutes: 8,
-      distanceKm: 920,
-      status: 'current',
-      platform: '1',
-    },
-    {
-      code: train.toCode,
-      name: train.to,
-      lat: 28.643,
-      lng: 77.2194,
-      scheduledArrival: '08:32',
-      scheduledDeparture: '08:32',
-      delayMinutes: 8,
-      distanceKm: 1384,
-      status: 'upcoming',
-      platform: '1',
-    },
-  ];
-
-  return {
-    trainId: train.number,
-    number: train.number,
-    name: train.name,
-    origin: { code: train.fromCode, name: train.from },
-    destination: { code: train.toCode, name: train.to },
-    currentLocation: {
-      lat: 25.2138,
-      lng: 75.8648,
-      heading: 45,
-      speedKmh: 110,
-      isMoving: true,
-    },
-    status: 'running',
-    delayMinutes: 8,
-    speedKmh: 110,
-    distanceCoveredKm: 920,
-    remainingDistanceKm: 464,
-    totalDistanceKm: 1384,
-    completionPercentage: 66.5,
-    lastUpdated: new Date().toISOString(),
-    ETA: 'Kota Junction at 03:15',
-    previousStation: stations[1],
-    currentStation: stations[2],
-    nextStation: stations[3],
-    stations,
-    routeGeometry: [
-      [72.8193, 18.9696],
-      [72.8406, 21.2049],
-      [75.8648, 25.2138],
-      [77.2194, 28.643],
-    ],
-  };
-}
-
 // ─── Public API ────────────────────────────────────────────────────────────
 
 export async function searchTrains(query: string): Promise<SearchResult[]> {
+  if (!isRailRadarConfigured()) {
+    throw new Error('RAILRADAR_NOT_CONFIGURED: RAILRADAR_API_KEY is not configured in your environment.');
+  }
+
   const q = query.trim();
-  if (!q) {
-    return searchLocalTrains('').map((t) => ({
-      id: t.number,
-      number: t.number,
-      name: t.name,
-      origin: { code: t.fromCode, name: t.from },
-      destination: { code: t.toCode, name: t.to },
-    }));
+  if (!q) return [];
+
+  const res = await rrFetch(`${RR_BASE}/lookup/trains?q=${encodeURIComponent(q)}`);
+  if (!res.ok) {
+    const json = await res.json().catch(() => ({}));
+    throw new Error(extractErrorMessage(json) || `Lookup failed: ${res.status}`);
   }
 
-  try {
-    const res = await rrFetch(`${RR_BASE}/lookup/trains?q=${encodeURIComponent(q)}`);
-    if (!res.ok) {
-      const json = await res.json().catch(() => ({}));
-      throw new Error(extractErrorMessage(json) || `Lookup failed: ${res.status}`);
-    }
+  const json = await res.json();
+  if (!json.success) throw new Error(extractErrorMessage(json));
 
-    const json = await res.json();
-    if (!json.success) throw new Error(extractErrorMessage(json));
-
-    const data: Record<string, string> = json?.data || {};
-    return Object.entries(data)
-      .slice(0, 15)
-      .map(([number, name]) => ({
-        id: number,
-        number,
-        name,
-        origin: { code: '', name: '' },
-        destination: { code: '', name: '' },
-      }));
-  } catch (err) {
-    console.warn('RailRadar lookup API fetch failed, using local DB fallback');
-    return searchLocalTrains(q).map((t) => ({
-      id: t.number,
-      number: t.number,
-      name: t.name,
-      origin: { code: t.fromCode, name: t.from },
-      destination: { code: t.toCode, name: t.to },
+  const data: Record<string, string> = json?.data || {};
+  return Object.entries(data)
+    .slice(0, 15)
+    .map(([number, name]) => ({
+      id: number,
+      number,
+      name,
+      origin: { code: '', name: '' },
+      destination: { code: '', name: '' },
     }));
-  }
 }
 
 export async function getLiveJourney(trainNumber: string): Promise<LiveJourney | null> {
-  try {
-    const [liveRes, routeGeo] = await Promise.all([
-      rrFetch(`${RR_BASE}/trains/${trainNumber}/live`, { cache: 'no-store' } as any),
-      fetchRouteGeometry(trainNumber),
-    ]);
-
-    const json = await liveRes.json().catch(() => null);
-
-    if (!liveRes.ok) {
-      if (liveRes.status === 404) return null;
-      const msg = extractErrorMessage(json);
-      if (liveRes.status === 429 || json?.error?.code === 'TOO_MANY_REQUESTS') {
-        throw new Error(`QUOTA_EXCEEDED: ${msg}`);
-      }
-      throw new Error(`RailRadar API error (${liveRes.status}): ${msg}`);
-    }
-
-    if (!json?.success || !json?.data) {
-      const msg = extractErrorMessage(json);
-      if (json?.error?.code === 'TOO_MANY_REQUESTS') {
-        throw new Error(`QUOTA_EXCEEDED: ${msg}`);
-      }
-      return null;
-    }
-
-    return normaliseLiveResponse(json.data as RRLiveResponse, routeGeo);
-  } catch (err: any) {
-    if (err?.message?.includes('QUOTA_EXCEEDED')) {
-      throw err;
-    }
-    console.warn(`[getLiveJourney] RailRadar API network error for train ${trainNumber}:`, err.message);
-    // Return generated fallback journey if server can't reach RailRadar API
-    return generateFallbackJourney(trainNumber);
+  if (!isRailRadarConfigured()) {
+    throw new Error('RAILRADAR_NOT_CONFIGURED: RAILRADAR_API_KEY is not configured in your environment.');
   }
+
+  const [liveRes, routeGeo] = await Promise.all([
+    rrFetch(`${RR_BASE}/trains/${trainNumber}/live`, { cache: 'no-store' } as any),
+    fetchRouteGeometry(trainNumber),
+  ]);
+
+  const json = await liveRes.json().catch(() => null);
+
+  if (!liveRes.ok) {
+    if (liveRes.status === 404) return null;
+    const msg = extractErrorMessage(json);
+    if (liveRes.status === 429 || json?.error?.code === 'TOO_MANY_REQUESTS') {
+      throw new Error(`QUOTA_EXCEEDED: ${msg}`);
+    }
+    throw new Error(`RailRadar API error (${liveRes.status}): ${msg}`);
+  }
+
+  if (!json?.success || !json?.data) {
+    const msg = extractErrorMessage(json);
+    if (json?.error?.code === 'TOO_MANY_REQUESTS') {
+      throw new Error(`QUOTA_EXCEEDED: ${msg}`);
+    }
+    return null;
+  }
+
+  return normaliseLiveResponse(json.data as RRLiveResponse, routeGeo);
 }
+

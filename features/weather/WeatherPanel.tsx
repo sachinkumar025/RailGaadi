@@ -16,11 +16,12 @@ export function WeatherPanel({ journey }: WeatherPanelProps) {
     next?: WeatherData;
     dest?: WeatherData;
   }>({});
-  const [loading, setLoading] = useState(true);
+  const [isUnconfigured, setIsUnconfigured] = useState(false);
 
   useEffect(() => {
     async function loadWeather() {
       setLoading(true);
+      setIsUnconfigured(false);
       try {
         const currSt = journey.currentStation || journey.previousStation || journey.stations[0];
         const nextSt = journey.nextStation || journey.stations[journey.stations.length - 1];
@@ -38,6 +39,11 @@ export function WeatherPanel({ journey }: WeatherPanelProps) {
           destRes.json(),
         ]);
 
+        if (currJson.error === 'OPENWEATHER_NOT_CONFIGURED' || currRes.status === 503) {
+          setIsUnconfigured(true);
+          return;
+        }
+
         setWeatherData({
           current: currJson.data,
           next: nextJson.data,
@@ -52,10 +58,22 @@ export function WeatherPanel({ journey }: WeatherPanelProps) {
     loadWeather();
   }, [journey]);
 
-  if (loading || !weatherData.current) {
+  if (loading) {
     return (
       <div className="glass-panel rounded-3xl p-6 text-center text-xs text-slate-400">
         Loading live OpenWeather intelligence...
+      </div>
+    );
+  }
+
+  if (isUnconfigured || !weatherData.current) {
+    return (
+      <div className="glass-panel rounded-3xl p-8 text-center space-y-3 border border-amber-500/20">
+        <div className="text-3xl">🌤️</div>
+        <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Weather Intelligence Unavailable</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+          OpenWeather feature requires <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono">OPENWEATHER_API_KEY</code>. Please configure it in your <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono">.env.local</code> file.
+        </p>
       </div>
     );
   }

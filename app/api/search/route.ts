@@ -31,22 +31,23 @@ export async function GET(request: NextRequest) {
       timestamp: new Date().toISOString(),
     });
   } catch (err: any) {
-    console.warn('[/api/search] RailRadar search failed, falling back to local DB:', err.message);
-
-    // Fallback to local offline train DB if RailRadar network request fails or times out
-    const localResults = searchLocalTrains(query).map((t) => ({
-      id: t.number,
-      number: t.number,
-      name: t.name,
-      origin: { code: t.fromCode, name: t.from },
-      destination: { code: t.toCode, name: t.to },
-    }));
-
-    return NextResponse.json<ApiResponse<SearchResult[]>>({
-      success: true,
-      data: localResults,
-      cached: false,
-      timestamp: new Date().toISOString(),
-    });
+    if (err.message?.includes('RAILRADAR_NOT_CONFIGURED')) {
+      return NextResponse.json<ApiResponse<never>>(
+        {
+          success: false,
+          error: 'RAILRADAR_NOT_CONFIGURED: RAILRADAR_API_KEY is not configured in your environment.',
+          timestamp: new Date().toISOString(),
+        },
+        { status: 503 }
+      );
+    }
+    return NextResponse.json<ApiResponse<never>>(
+      {
+        success: false,
+        error: err.message || 'Search request failed',
+        timestamp: new Date().toISOString(),
+      },
+      { status: 500 }
+    );
   }
 }

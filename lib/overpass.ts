@@ -96,12 +96,6 @@ export async function getTerrainFeatures(
     return features;
   } catch (e) {
     console.warn('Overpass terrain fetch failed:', e);
-
-    // Return a few synthetic POIs if Overpass is unavailable
-    return [
-      { type: 'river', name: 'Tapti River', lat: 21.15, lng: 72.72, distanceKm: 265 },
-      { type: 'bridge', name: 'Kota Railway Bridge', lat: 25.18, lng: 75.85, distanceKm: 918 },
-      { type: 'mountain', name: 'Aravalli Hills', lat: 24.6, lng: 73.9, distanceKm: 750 },
-    ];
+    return [];
   }
 }

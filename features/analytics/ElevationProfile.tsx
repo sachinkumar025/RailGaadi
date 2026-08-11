@@ -10,7 +10,17 @@ interface ElevationProfileProps {
 }
 
 export function ElevationProfile({ data, highestElevationM }: ElevationProfileProps) {
-  if (!data || data.length === 0) return null;
+  if (!data || data.length === 0) {
+    return (
+      <div className="glass-panel rounded-3xl p-8 text-center space-y-2 border border-amber-500/20">
+        <div className="text-3xl">⛰️</div>
+        <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Elevation Profile Unavailable</h3>
+        <p className="text-xs text-slate-500 dark:text-slate-400 max-w-sm mx-auto">
+          OpenTopography terrain profile requires <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono">OPENTOPOGRAPHY_API_KEY</code>. Please configure it in your <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded font-mono">.env.local</code> file.
+        </p>
+      </div>
+    );
+  }
 
   const maxElev = Math.max(...data.map((d) => d.elevationM), 100);
   const minElev = Math.min(...data.map((d) => d.elevationM), 0);

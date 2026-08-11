@@ -56,24 +56,23 @@ export default function MapView({ journey, className }: MapViewProps) {
   const followTrainMode = useJourneyStore((state) => state.followTrainMode);
   const setFollowTrainMode = useJourneyStore((state) => state.setFollowTrainMode);
 
+  if (!MAPTILER_KEY) {
+    return (
+      <div className={cn('relative flex flex-col items-center justify-center overflow-hidden rounded-3xl glass-panel p-8 text-center border border-amber-500/20 min-h-[420px]', className)}>
+        <div className="text-4xl mb-3">🗺️</div>
+        <h3 className="font-extrabold text-base text-slate-900 dark:text-white">Map Display Unavailable</h3>
+        <p className="mt-2 text-xs text-slate-500 dark:text-slate-400 max-w-sm">
+          MapTiler vector map tiles require <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">NEXT_PUBLIC_MAPTILER_API_KEY</code>. Please configure it in your <code className="bg-slate-100 dark:bg-slate-800 px-1.5 py-0.5 rounded text-[11px] font-mono">.env.local</code> file.
+        </p>
+      </div>
+    );
+  }
+
   // ─── Init map ─────────────────────────────────────────────────────────────
   useEffect(() => {
     if (!mapContainerRef.current) return;
 
-    const styleUrl = MAPTILER_KEY
-      ? `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`
-      : {
-          version: 8 as const,
-          sources: {
-            'carto-dark': {
-              type: 'raster' as const,
-              tiles: ['https://a.basemaps.cartocdn.com/dark_all/{z}/{x}/{y}.png'],
-              tileSize: 256,
-              attribution: '© OpenStreetMap © CARTO',
-            },
-          },
-          layers: [{ id: 'carto-layer', type: 'raster' as const, source: 'carto-dark' }],
-        };
+    const styleUrl = `https://api.maptiler.com/maps/dataviz-dark/style.json?key=${MAPTILER_KEY}`;
 
     const center: [number, number] = [
       journey.currentLocation?.lng || journey.stations[0]?.lng || 77.22,

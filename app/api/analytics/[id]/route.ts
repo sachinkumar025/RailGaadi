@@ -12,6 +12,7 @@ export interface AnalyticsResponse {
   completionPercentage: number;
   highestElevationM: number;
   elevationProfile: ElevationPoint[];
+  elevationAvailable?: boolean;
   delayHistory: { stationCode: string; stationName: string; delayMinutes: number }[];
 }
 
@@ -42,9 +43,19 @@ export async function GET(
     }
 
     const routeCoords = journey.routeGeometry || journey.stations.map((s) => [s.lng, s.lat]);
-    const elevationProfile = await getElevationProfile(routeCoords, journey.totalDistanceKm);
+    let elevationProfile: ElevationPoint[] = [];
+    let highestElevationM = 0;
+    let elevationAvailable = true;
 
-    const highestElevationM = Math.max(...elevationProfile.map((e) => e.elevationM), 520);
+    try {
+      elevationProfile = await getElevationProfile(routeCoords, journey.totalDistanceKm);
+      if (elevationProfile.length > 0) {
+        highestElevationM = Math.max(...elevationProfile.map((e) => e.elevationM), 0);
+      }
+    } catch (e: any) {
+      console.warn('Elevation profile unavailable:', e.message);
+      elevationAvailable = false;
+    }
 
     const delayHistory = journey.stations.map((s) => ({
       stationCode: s.code,
@@ -60,6 +71,7 @@ export async function GET(
       completionPercentage: journey.completionPercentage,
       highestElevationM,
       elevationProfile,
+      elevationAvailable,
       delayHistory,
     };
 
