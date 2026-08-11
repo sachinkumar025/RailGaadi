@@ -16,7 +16,9 @@ export function WeatherPanel({ journey }: WeatherPanelProps) {
     next?: WeatherData;
     dest?: WeatherData;
   }>({});
+  const [loading, setLoading] = useState(false);
   const [isUnconfigured, setIsUnconfigured] = useState(false);
+ 
 
   useEffect(() => {
     async function loadWeather() {
